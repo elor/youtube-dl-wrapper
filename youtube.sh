@@ -4,11 +4,11 @@
 
 set -e -u
 
+clear
+
 vlc=/c/Program\ Files\ \(x86\)/VideoLAN/VLC/vlc.exe
 youtubedl=/c/Program\ Files\ \(x86\)/youtube-dl/youtube-dl.exe
 linkfile="links.txt"
-
-touch "$linkfile"
 
 getvideoname(){
   local url="$1"
@@ -66,10 +66,32 @@ readurl(){
   echo "$url"
 }
 
+waitandexit(){
+  read -p "Drücke Enter, um fortzufahren"
+  exit 0
+}
+
+createlinkfile(){
+  [ -f "$linkfile" ] && return
+
+  touch "$linkfile"
+
+  cat <<EOF
+$linkfile wurde erstellt.
+
+Kopiere deine Youtube-Links in $linkfile, speicher ab und starte $(sed 's/^.*[\\/]//' <<< "$0") erneut.
+
+EOF
+
+  waitandexit
+}
+
+createlinkfile
+
 if empty; then
-  echo "'$linkfile' enthält keine Youtube-Links"
-  sleep 5
-  exit 1
+  echo "'$linkfile' enthält keine Youtube-Links."
+  echo
+  waitandexit
 fi
 
 while ! empty; do
