@@ -6,21 +6,16 @@ set -e -u
 
 clear
 
-vlc=/c/Program\ Files\ \(x86\)/VideoLAN/VLC/vlc.exe
+vlc=/c/Program\ Files/VideoLAN/VLC/vlc.exe
 youtubedl=/c/Program\ Files\ \(x86\)/youtube-dl/youtube-dl.exe
 linkfile="links.txt"
 
-getvideoname(){
-  local url="$1"
-  "$youtubedl" --get-filename "$url"
-}
-
 download(){
   local url="$1"
+  local format="%(id)s.%(ext)s"
 
-  echo "Lade '$url' herunter"
-
-  "$youtubedl" -t "$url"
+  "$youtubedl" -o "$format" "$url" >&2
+  "$youtubedl" --get-filename -o "$format" "$url"
 }
 
 convert(){
@@ -29,29 +24,32 @@ convert(){
   mp3name=$(basename "$videoname" | sed 's/\..*$/.mp3/')
   wavname=$(basename "$videoname" | sed 's/\..*$/.wav/')
 
+  [ -s "$videoname" ] || { tee /dev/stderr <<< "FEHLER: Konnte Video nicht herunterladen"; exit 1; }
   rm -fv "$wavname" "$mp3name"
 
   echo "Konvertiere '$videoname' zu $wavname"
 
   "$vlc" \
+    -I dummy -q \
     --no-crashdump \
-    -vvv \
     "$videoname" \
     :no-video \
     :sout='#transcode{acodec=s16l,channels=2,samplerate=44100}:std{access=file,mux=wav,dst="'"$wavname"'"}' \
     vlc://quit
 
+  [ -s "$wavname" ] || { tee /dev/stderr <<< "FEHLER: Konnte Tonspur nicht aus Video extrahieren"; exit 1; }
   rm -fv "$videoname"
 
   echo "Konvertiere '$wavname' zu $mp3name"
 
   "$vlc" \
+    -I dummy -q \
     --no-crashdump \
-    -vvv \
     "$wavname" \
     :sout='#transcode{acodec=mp3,ab=192}:std{access=file,mux=dummy,dst="'"$mp3name"'"}' \
     vlc://quit
 
+  [ -s "$mp3name" ] || { tee /dev/stderr <<< "FEHLER: Konnte Tonspur nicht zu MP3-Datei umwandeln"; exit 1; }
   rm -fv "$wavname"
 }
 
@@ -67,7 +65,7 @@ readurl(){
 }
 
 waitandexit(){
-  read -p "Drücke Enter, um fortzufahren"
+  read -p "DrÃ¼cke Enter, um fortzufahren"
   exit 0
 }
 
@@ -89,17 +87,16 @@ EOF
 createlinkfile
 
 if empty; then
-  echo "'$linkfile' enthält keine Youtube-Links."
+  echo "'$linkfile' enthÃ¤lt keine Youtube-Links."
   echo
   waitandexit
 fi
 
 while ! empty; do
   url=$(readurl)
-  download "$url"
-  convert "$(getvideoname "$url")"
+  videofilename=$(download "$url")
+  convert "$videofilename"
 done
 
 echo
 echo "fertig"
-
